@@ -41,6 +41,12 @@ def mis_ips():
 
 def main():
     propias = mis_ips()
+
+    def es_propia(ip):
+        # Una respuesta desde 127.* también es de esta PC: pasa si broker.py contesta por la
+        # interfaz local (en Linux, el nombre de la PC suele resolver a 127.0.1.1).
+        return ip in propias or ip.startswith("127.")
+
     # x.y.z.255 supone una red /24 (ver arriba)
     destinos = {"255.255.255.255"} | {ip.rsplit(".", 1)[0] + ".255" for ip in propias}
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -69,9 +75,9 @@ def main():
         print("Nadie contestó: no hay otro broker de AURA buscable en esta red.")
         return
     for ip, texto in sorted(vistos.items()):
-        quien = "ESTA PC (¿broker.py está corriendo?)" if ip in propias else "OTRA COMPUTADORA"
+        quien = "ESTA PC (¿broker.py está corriendo?)" if es_propia(ip) else "OTRA COMPUTADORA"
         print(f"Contestó {ip}: '{texto}'  ->  {quien}")
-    if any(ip not in propias for ip in vistos):
+    if any(not es_propia(ip) for ip in vistos):
         print("\nHay otro broker en la red: el gateway se podría conectar a ese. Conviene fijarle la dirección.")
 
 
