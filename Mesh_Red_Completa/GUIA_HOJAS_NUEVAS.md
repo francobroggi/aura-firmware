@@ -1,10 +1,12 @@
 # Guía para hojas nuevas de AURA: del banco a la red final
 
-Última actualización: 13/11/2026.
+> **Borrador para revisión de la cátedra.** No es una versión final. Las decisiones de planteo están al final, en «Decisiones para revisar», para que se puedan comentar una por una.
+
+Última actualización: 14/11/2026.
 
 ## Para la IA que acompaña a un grupo
 
-Esta guía está escrita para que un asistente de IA la lea y guíe a un grupo de estudiantes hasta que su hoja quede habilitada. Está basada en `main` al 13/11/2026 (commit `ccff468`): si algo de acá no coincide con el repo, vale el repo, y hay que avisárselo al grupo.
+Esta guía está escrita para que un asistente de IA la lea y guíe a un grupo de estudiantes hasta que su hoja quede habilitada. Está basada en `main` al 13/11/2026 (commit `12eb411`): si algo de acá no coincide con el repo, vale el repo, y hay que avisárselo al grupo.
 
 1. **Guiar en orden, un paso por vez,** y pedir la evidencia de cada uno antes de seguir: la salida de la terminal o del monitor serie, no un "ya está".
 2. **Los comandos son para Windows:** la terminal de ESP-IDF es PowerShell. Si el grupo usa Linux o macOS, adaptarlos.
@@ -15,16 +17,19 @@ Esta guía está escrita para que un asistente de IA la lea y guíe a un grupo d
 7. **Ante un error, buscar primero en "Errores comunes"** y en la sección 5 de `GUIA_NODOS_HOJA.md`, antes de proponer cambios de código.
 8. **El PR lo revisa también un proceso automático de la cátedra,** que deja un comentario en GitHub (paso 7): ayudar al grupo a leerlo y a responder cada punto.
 9. **Lo marcado como pendiente no se inventa:** el grupo lo confirma con la cátedra.
+10. **Si el grupo todavía no tiene su banco armado,** empezar por `GUIA_BANCO_DE_PRUEBAS.md` (paso 0).
 
 ## El recorrido, del banco a la red final
 
-Una hoja nueva pasa a la red final recién cuando pasó las pruebas del banco y su código está en `main`. Después del merge, la cátedra compila desde `main` con las credenciales de la instalación, firma esa imagen y la graba. Hasta ahí, el grupo trabaja con la red de pruebas y su propia clave de prueba, y nunca recibe las credenciales de la red final.
+Una hoja nueva pasa a la red final recién cuando pasó las pruebas del banco y su código está en `main`. Después del merge, la cátedra compila desde `main` con las credenciales de la instalación, firma esa imagen y la graba. Hasta ahí, el grupo trabaja con su banco y su propia clave de prueba, y nunca recibe las credenciales de la red final.
+
+**Paso 0:** antes de empezar, el grupo arma su banco de pruebas (gateway, concentrador, broker y tablero propios) con `Mesh_Red_Completa/GUIA_BANCO_DE_PRUEBAS.md`, que está en un PR aparte.
 
 ```mermaid
 flowchart TB
   subgraph G[Grupo]
     direction LR
-    A1["Pasos 1 a 3<br/>carpeta y firmware"] --> A2["Paso 4<br/>compilar y firmar"] --> A3["Paso 5<br/>9 pruebas e informe"] --> A4["Pasos 6 y 7<br/>conector y PR"]
+    A0["Paso 0<br/>armar el banco"] --> A1["Pasos 1 a 3<br/>carpeta y firmware"] --> A2["Paso 4<br/>compilar y firmar"] --> A3["Paso 5<br/>9 pruebas e informe"] --> A4["Pasos 6 y 7<br/>conector y PR"]
   end
   subgraph C[Cátedra]
     direction LR
@@ -94,9 +99,9 @@ Si falta la verificación de firma, la compilación se frena con un `#error`. El
 
 ## Paso 3: configuración local y lo que nunca se sube
 
-En el banco se trabaja con dos cosas que no van al repo: los datos de la red de pruebas y una clave de firma de prueba del grupo. El repo es público, y el CI rechaza cualquier `config_local.h` versionado.
+En el banco se trabaja con dos cosas que no van al repo: los datos de mesh del banco y una clave de firma de prueba del grupo. El repo es público, y el CI rechaza cualquier `config_local.h` versionado.
 
-1. **Los datos de la mesh:** copiar `main/config_local.ejemplo.h` como `main/config_local.h` y completar `MESH_ID_BYTES` y `MESH_AP_PASS` con los de la **red de pruebas** del laboratorio, que la cátedra pasa en persona. Si ya hay una placa andando en esa red, lo más seguro es copiar su `config_local.h` en lugar de tipear: un carácter distinto y la placa no entra a la malla.
+1. **Los datos de la mesh:** los que el grupo generó para su banco (paso 0). Lo más seguro es copiar el `config_local.h` del gateway del banco como `main/config_local.h`, en lugar de tipear: un carácter distinto y la placa no entra a la malla.
 2. **La clave de firma de prueba,** generada una vez por grupo y guardada fuera del repo, por ejemplo en `C:\aura-claves\`:
 
     ```
@@ -114,16 +119,14 @@ La compilación no firma: se compila, se firma aparte con la clave de prueba, se
 ```
 idf.py set-target esp32c3
 idf.py build
-python -m espsecure sign-data --version 2 --keyfile C:\aura-claves\firma_prueba.pem --output build\firmado.bin build\<tipo>.bin
-Move-Item -Force build\firmado.bin build\<tipo>.bin
-python -m espsecure verify-signature --version 2 --keyfile C:\aura-claves\firma_prueba.pem build\<tipo>.bin
+python ..\..\Mesh_Red_Completa\Broker_MQTT\firmar.py --clave C:\aura-claves\firma_prueba.pem build\<tipo>.bin
 idf.py -p COMx erase-flash
 idf.py -p COMx flash monitor
 ```
 
-`<tipo>` es el nombre del `project(...)`, por ejemplo `aura-energia-pm2130`. Cuando se mergee el PR #47, `firmar.py` hace la firma y la verificación en un solo paso.
+`<tipo>` es el nombre del `project(...)`, por ejemplo `aura-energia-pm2130`. `firmar.py` firma la imagen, verifica la firma y se niega a firmar dos veces la misma imagen.
 
-- **Firmar una sola vez** cada imagen: firmar dos veces la deforma, sin aviso.
+- **Firmar una sola vez** cada imagen: con `espsecure` directo, firmar dos veces la deforma sin aviso; `firmar.py` lo impide.
 - **El aviso `App built but not signed` aparece siempre** al compilar, aunque la imagen ya esté firmada.
 - **`idf.py flash` no recompila si no cambió nada,** y graba la imagen firmada. Si se cambió algo después de firmar, hay que compilar y firmar de nuevo.
 - **Grabar siempre una imagen firmada:** una placa que arranca con una imagen sin firma no acepta ninguna OTA.
@@ -131,7 +134,7 @@ idf.py -p COMx flash monitor
 
 ## Paso 5: pruebas obligatorias en el banco
 
-Una hoja queda habilitada cuando pasa estas 9 pruebas en el banco y deja la evidencia en el repo. Se hacen con la red de pruebas, `broker.py`, el tablero y `ota.py` (ver `Mesh_Red_Completa/Broker_MQTT/LEEME.md`).
+Una hoja queda habilitada cuando pasa estas 9 pruebas en el banco y deja la evidencia en el repo. Se hacen en el banco del grupo (paso 0, `GUIA_BANCO_DE_PRUEBAS.md`), con `broker.py`, el tablero y `ota.py` (ver `Mesh_Red_Completa/Broker_MQTT/LEEME.md`).
 
 | N.º | Prueba | Cómo | Resultado esperado |
 | --- | --- | --- | --- |
@@ -208,8 +211,23 @@ Todo está en `main` de [Universidad-Nacional-de-Rafaela/aura-firmware](https://
 | `docs/adr/ADR-008-actualizacion-por-la-malla-y-tipo-de-firmware.md` | La OTA y el tipo de firmware |
 | `Mesh_Red_Completa/Mesh3_Hoja/` | La hoja de ejemplo: la plantilla para copiar |
 | `Mesh_Red_Completa/componentes/nodo_mesh/` | La biblioteca de las hojas |
-| `Mesh_Red_Completa/Broker_MQTT/` | El banco: `broker.py`, el tablero, `ota.py` y su `LEEME.md` |
+| `Mesh_Red_Completa/Broker_MQTT/` | El banco: `broker.py`, el tablero, `ota.py`, las herramientas (`firmar.py`, `pem_a_define.py`, `buscar_brokers.py`, `mandar_comando.py`) y su `LEEME.md` |
 | `ejemplos/plantilla_conector/` | La plantilla del conector |
 | `dispositivos/E1-PB-LECA-TAB01/` | Una hoja completa de ejemplo: Modbus RTU por RS-485, tests sin placa e informes de prueba en `pruebas/` |
 | `conectores/E1-PB-LECA-TAB01/` | Un conector completo, con tests sobre mediciones reales |
-| PR #47 (todavía no mergeado) | Herramientas del banco: `firmar.py`, `pem_a_define.py`, `buscar_brokers.py` y `mandar_comando.py` |
+| `Mesh_Red_Completa/GUIA_BANCO_DE_PRUEBAS.md` (en un PR aparte) | Cómo arma cada grupo su banco de pruebas: el paso 0 |
+| `Mesh_Red_Completa/MIGRACION_FIRMA.md` | Cómo cambiar la clave de placas que quedaron firmadas con una clave de prueba |
+
+## Decisiones para revisar
+
+1. **La guía está escrita para que la lea una IA que acompaña a un grupo.** Por qué: los grupos ya trabajan con asistentes, y unas reglas explícitas (orden, evidencia, credenciales) evitan que la IA improvise. Alternativa descartada: una guía solo para personas; de todos modos, las reglas para la IA también le sirven a una persona.
+2. **El repo manda sobre la guía.** La guía fija el commit de `main` en que se basa, y si algo no coincide, vale el repo. Por qué: la guía resume documentos que van a cambiar (`GUIA_NODOS_HOJA.md`, `CONTRIBUTING.md`, el contrato). Alternativa descartada: copiar su contenido, que se desactualiza sin aviso.
+3. **Toda hoja parte de `Mesh3_Hoja`.** Por qué: es la plantilla que mantiene la cátedra, y ya trae la OTA y la firma configuradas; la carpeta de otro grupo puede arrastrar decisiones propias de su dispositivo. `E1-PB-LECA-TAB01` queda como ejemplo de consulta, no como plantilla.
+4. **El tipo de firmware va por uso,** como dice `GUIA_NODOS_HOJA.md` (2.7), aunque `CONTRIBUTING.md` diga «tu código en minúsculas». Por qué: es la regla del ADR-008, y la que usa la OTA para elegir placas. La discrepancia queda señalada para que la cátedra corrija uno de los dos documentos.
+5. **Nueve pruebas obligatorias y una recomendada.** Cubren lo que hace falta para habilitar una hoja: el alta, la configuración, el plan B, la OTA (normal, misma versión, sin firma, otra clave y vuelta atrás) y que no se pierdan datos. El corte de energía queda como recomendada porque prueba más al gateway que a la hoja. Las pruebas de HTTPS no se piden, porque dependen del gateway y del servidor, no de la hoja.
+6. **La evidencia es un informe en `pruebas/`,** con extractos de los registros sin MAC ni IP. Por qué: queda versionada junto al código, y se revisa en el mismo PR. Alternativa descartada: subir los registros completos, que la cátedra pidió no versionar.
+7. **Las credenciales de la red final y la firma son solo de la cátedra,** como dice el #66: el grupo entrega código, nunca un `.bin`, y no recibe las credenciales finales. Por qué: es lo que evita que una placa de banco termine en producción, que es lo que nos pasó a nosotros (ver `MIGRACION_FIRMA.md`).
+8. **Los comandos son para PowerShell,** la terminal de ESP-IDF en Windows, que es lo que usa la mayoría. La regla 2 para la IA cubre Linux y macOS.
+9. **Los errores comunes salen de casos reales** del banco de E1-PB-LECA-TAB01, y no de una lista teórica.
+10. **El análisis de la migración de firma va en un archivo aparte** (`MIGRACION_FIRMA.md`). Por qué: es un caso puntual, el de placas ya instaladas con una clave de prueba, y esta guía es para hojas nuevas.
+11. **El armado del banco va en otra guía, como paso 0** (`GUIA_BANCO_DE_PRUEBAS.md`, en un PR aparte). Por qué: el banco se arma una vez por grupo, y la hoja se desarrolla muchas veces sobre él. Separadas, cada guía es más corta, y cada revisión también.

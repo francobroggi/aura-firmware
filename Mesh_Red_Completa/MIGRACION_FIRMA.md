@@ -1,6 +1,8 @@
 # Cambio de clave de firma en placas de producción
 
-Análisis y propuesta del grupo de E1-PB-LECA-TAB01, pendiente de decisión de la cátedra. 13/11/2026.
+> **Borrador para revisión de la cátedra.** No es una versión final. Las decisiones de planteo están al final, en «Decisiones para revisar», para que se puedan comentar una por una.
+
+Análisis y propuesta del grupo de E1-PB-LECA-TAB01, pendiente de decisión de la cátedra. Actualizado el 14/11/2026.
 
 Las tres placas instaladas el 11/11 (el gateway, el concentrador y la hoja E1-PB-LECA-TAB01) quedaron firmadas con la clave de prueba del grupo, y tienen que pasar a la clave de la cátedra. Hay dos caminos: grabarlas por USB, o actualizarlas por la malla con una imagen de transición que lleve las dos firmas. Cuál conviene depende del certificado del servidor HTTPS de la cátedra.
 
@@ -40,7 +42,7 @@ ESP-IDF admite hasta tres firmas por imagen en el esquema de firma que usa el pr
 
 La imagen de transición se arma respetando el #66. La compila la cátedra desde `main`, y no sale de su máquina, porque lleva las credenciales. La firma del grupo se agrega ahí mismo: alguien del grupo trae su clave en un pendrive, firma esa imagen en la máquina de la cátedra, y se lleva la clave sin dejar copia. Después, la cátedra le agrega su firma con la opción de `espsecure sign-data` que agrega una firma a una imagen ya firmada (`--append-signatures`; conviene confirmar el nombre con `espsecure sign-data --help`).
 
-Que la clave del grupo pase por esa máquina no deja un riesgo permanente, porque en el paso 3 deja de valer. `firmar.py` del PR #47 no sirve para agregar la segunda firma: se niega a firmar una imagen que ya tiene una.
+Que la clave del grupo pase por esa máquina no deja un riesgo permanente, porque en el paso 3 deja de valer. `firmar.py` (en `Mesh_Red_Completa/Broker_MQTT/`) no sirve para agregar la segunda firma: se niega a firmar una imagen que ya tiene una.
 
 Requisitos:
 
@@ -78,3 +80,10 @@ Por eso, las imágenes de producción no se suben a un servidor público, ni a r
 - [ ] Qué certificado tiene el servidor HTTPS de la cátedra: de una CA pública o de una propia.
 - [ ] Probar en el banco la imagen de dos firmas, y confirmar si la placa confía en las claves de todas las firmas o solo en la de la primera.
 - [ ] Qué camino se usa para las tres placas.
+
+## Decisiones para revisar
+
+1. **No llevar la clave de prueba al servidor, ni adoptarla como clave de la cátedra,** por las tres razones de la sección «Por qué no conviene llevar la clave de prueba al servidor».
+2. **Dejar planteados los dos caminos, en lugar de elegir uno.** Por qué: cuál conviene depende del certificado del servidor HTTPS y de la prueba de la imagen de dos firmas en el banco, y las dos cosas todavía no están resueltas.
+3. **La imagen de transición la compila la cátedra, y el grupo la firma en su máquina, en persona.** Por qué: respeta el #66 (no se firman `.bin` compilados por otros, y la imagen no se publica) sin mover ninguna clave de forma permanente.
+4. **Las imágenes de producción nunca van a un servidor público,** aunque eso le resolviera al gateway la confianza en el certificado. Por qué: llevan las credenciales compiladas.
